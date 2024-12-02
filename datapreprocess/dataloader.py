@@ -9,11 +9,15 @@ import sys
 IMG_PATCH_SIZE = 16
 def value_to_class(v):
     foreground_threshold = 0.25  # percentage of pixels > 1 required to assign a foreground label to a patch
-    df = numpy.sum(v)
-    if df > foreground_threshold:  # road
-        return [0, 1]
-    else:  # bgrd
-        return [1, 0]
+    df = torch.sum(v)  # 使用 PyTorch 的 sum 方法来保留计算图
+
+    label = torch.where(df > foreground_threshold,
+                        torch.tensor([0.0], device=v.device, dtype=torch.float32),
+                        torch.tensor([1.0], device=v.device, dtype=torch.float32))
+    return label
+def value_to_class2(v):
+    df = torch.sum(v)  # 使用 PyTorch 的 sum 方法来保留计算图
+    return df
 def img_crop(im, w, h):
     im_patchs=[]
     imgwidth = im.shape[0]
@@ -28,51 +32,63 @@ def img_crop(im, w, h):
             im_patchs.append(im_patch)
     return im_patchs
 
-def extract_labels(gt_img,image_PZ=IMG_PATCH_SIZE):  
-    """Extract the labels into a 1-hot matrix [image index, label index]."""
-    if gt_img.requires_grad:
-        gt_img = gt_img.detach()
-    if gt_img.is_cuda:
-        gt_img = gt_img.cpu()
-
-    if isinstance(gt_img, torch.Tensor):
-        gt_img = gt_img.numpy()
-    gt_img = numpy.squeeze(gt_img)
-    gt_patches = img_crop(gt_img,image_PZ, image_PZ)
-    labels = [value_to_class(numpy.mean(patch))[0] for patch in gt_patches]
-    # Convert to dense 1-hot representation.
-    return numpy.array(labels,dtype=numpy.float32)
-import torch
-
-def extract_labels_torch(gt_img, image_PZ=16):
+def extract_labels_torch2(gt_img, image_PZ=16):
     """
     Extract the labels into a 1-hot matrix [image index, label index] using PyTorch operations.
-    
+
     Args:
     - gt_img (Tensor): Ground truth image, expects a 2D or 3D tensor.
     - image_PZ (int): Patch size, the size of each patch to extract.
-    
+
     Returns:
     - Tensor: Extracted labels as a tensor.
     """
     if not isinstance(gt_img, torch.Tensor):
         raise ValueError("Expected gt_img to be a torch.Tensor")
-    # print('label',gt_img.shape,file=sys.stdout, flush=True)
-    img_width,img_height = gt_img.shape[-2:]  # 获取高度和宽度
+
+    img_width, img_height = gt_img.shape[-2:]  # 获取高度和宽度
 
     labels = []
-
     for i in range(0, img_height, image_PZ):
         for j in range(0, img_width, image_PZ):
-            patch = gt_img[j:j + image_PZ,i:i + image_PZ]
-            # if patch.shape[-2:] == (image_PZ, image_PZ):
-            patch_mean = patch.mean().item()
-            label = value_to_class(patch_mean)[0]  
+            patch = gt_img[j:j + image_PZ, i:i + image_PZ]
+            patch_mean = patch.mean()  # 保留计算图
+
+            label = value_to_class(patch_mean)  # 假设它返回一个保留计算图的张量
             labels.append(label)
-    # return the result
-    # print('label',label)
-    labels_tensor = torch.tensor(labels, dtype=torch.float32, device=gt_img.device, requires_grad=True)
-    # print('label',labels_tensor.shape,file=sys.stdout, flush=True)
+
+    # 将所有标签拼接成一个张量
+    labels_tensor = torch.stack(labels) ##if len(labels) > 1 else labels[0]
+    return labels_tensor
+import torch
+
+def extract_labels_torch(gt_img, image_PZ=16):
+    """
+    Extract the labels into a 1-hot matrix [image index, label index] using PyTorch operations.
+
+    Args:
+    - gt_img (Tensor): Ground truth image, expects a 2D or 3D tensor.
+    - image_PZ (int): Patch size, the size of each patch to extract.
+
+    Returns:
+    - Tensor: Extracted labels as a tensor.
+    """
+    if not isinstance(gt_img, torch.Tensor):
+        raise ValueError("Expected gt_img to be a torch.Tensor")
+
+    img_width, img_height = gt_img.shape[-2:]  # 获取高度和宽度
+
+    labels = []
+    for i in range(0, img_height, image_PZ):
+        for j in range(0, img_width, image_PZ):
+            patch = gt_img[j:j + image_PZ, i:i + image_PZ]
+            patch_mean = patch.mean()  # 保留计算图
+
+            # label = value_to_class2(patch_mean)  # 假设它返回一个保留计算图的张量
+            labels.append(patch_mean)
+
+    # 将所有标签拼接成一个张量
+    labels_tensor = torch.stack(labels) ##if len(labels) > 1 else labels[0]
     return labels_tensor
 
 class RoadSegmentationDataset(Dataset):
@@ -107,7 +123,7 @@ class RoadSegmentationDataset(Dataset):
         # print('image.shape',image.shape)
         # print('label', label.shape)
         # label = torch.where(label > 0, 1.0, 0.0).type(torch.float32)
-        label = extract_labels(label)
+        # label = extract_labels(label)
         # print('label',label.shape,file=sys.stdout, flush=True)
         return image, label
 

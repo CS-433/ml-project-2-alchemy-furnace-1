@@ -62,7 +62,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 import torchvision.transforms as transforms
 from PIL import Image
 from torchvision.models import vit_b_16
-
+import collections
 class Patchify(nn.Module):
     def __init__(self, patch_size=16):
         super(Patchify, self).__init__()
@@ -113,34 +113,113 @@ class TransformerBlocks(nn.Module):
         return src
 
 
-class ViTEncoderDecoder(nn.Module):
-    def __init__(self, image_size=400, patch_size=16, in_channels=3, embed_dim=768, num_heads=8, num_layers=6, mlp_dim=2048):
-        super(ViTEncoderDecoder, self).__init__()
-        self.patchify = nn.Conv2d(in_channels, embed_dim, kernel_size=patch_size, stride=patch_size)  # 替代线性投影
-        self.pos_embedding = nn.Parameter(torch.randn(1, (image_size // patch_size) ** 2, embed_dim))
-        self.encoder = TransformerBlocks(embed_dim=embed_dim, num_heads=num_heads, num_layers=num_layers, mlp_dim=mlp_dim)
-        self.decoder = TransformerBlocks(embed_dim=embed_dim, num_heads=num_heads, num_layers=num_layers, mlp_dim=mlp_dim)
-        self.upsample = nn.ConvTranspose2d(embed_dim, embed_dim, kernel_size=2, stride=2)  # 上采样操作
-        self.output_layer = nn.Conv2d(embed_dim, 1, kernel_size=1)
-        self.patch_size = patch_size
-    def forward(self, x):
-        # Patchify input image
-        x = self.patchify(x)  # (batch_size, embed_dim, H/patch_size, W/patch_size)
-        x = x.flatten(2).permute(0, 2, 1)  # (batch_size, num_patches, embed_dim)
-        x = x + self.pos_embedding  # Add position embedding
-        x = x.permute(1, 0, 2)  # (num_patches, batch_size, embed_dim)
-        
-        # Encoder
-        memory = self.encoder(x)  # Transformer Encoder
-        
-        # Decoder
-        x = self.decoder(memory)
-        
-        # Reshape back to 2D
-        x = x.permute(1, 2, 0).contiguous().view(x.size(1), -1, int(400 / 16), int(400 / 16))
-        x = self.upsample(x)  # 上采样
-        x = self.output_layer(x)
-        # x = x.view(x.size(0), -1)
-        return x
+import torch
+import torch.nn as nn
+import torchvision.models as models
 
+class ViTEncoderDecoder(nn.Module):
+    def __init__(self, image_size=400, patch_size=16, in_channels=3, embed_dim=512, num_heads=8, num_layers=5, mlp_dim=2048):
+        super(ViTEncoderDecoder, self).__init__()
+        self.encoder1 = self.CNNBlock(in_channels, 64, namePrefix="enc1")
+        self.encoder2 = self.CNNBlock(64, 128, namePrefix="enc2")
+        self.encoder3 = self.CNNBlock(128, 256, namePrefix="enc3")
+        self.encoder4 = self.CNNBlock(256, 512, namePrefix="enc4")
+        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
+        # Use ResNet as feature extractor
+        # resnet = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+        # self.feature_extractor = nn.Sequential(*list(resnet.children())[:-2])  # Remove the last two layers (avgpool and fc)
+        # resnet_out_channels = 512  # For ResNet-18, the output channels from last convolutional block is 512
+        
+        # Ensure output matches the embedding dimension
+        # self.conv_proj = nn.Conv2d(resnet_out_channels, embed_dim, kernel_size=1)
+        self.conv_proj = nn.Conv2d(512, embed_dim, kernel_size=1)
+        # Calculate the number of patches after feature extraction
+        num_patches = (image_size // 32) ** 2
+
+        # Positional embedding
+        self.pos_embedding = nn.Parameter(torch.randn(1, (image_size // patch_size) ** 2, embed_dim))
+        self.bottleneck = self.CNNBlock(512,512, namePrefix="b")
+        # Encoder and decoder
+        # self.encoder = TransformerBlocks(embed_dim=embed_dim, num_heads=num_heads, num_layers=num_layers, mlp_dim=mlp_dim)
+        # self.decoder = TransformerBlocks(embed_dim=embed_dim, num_heads=num_heads, num_layers=num_layers, mlp_dim=mlp_dim)
+        self.transformer = TransformerBlocks(embed_dim=embed_dim, num_heads=num_heads, num_layers=num_layers, mlp_dim=mlp_dim)
+        # Upsampling layers
+        self.upconv4 = nn.ConvTranspose2d(embed_dim, 512, kernel_size=2, stride=2)
+        self.decoder4 = self.CNNBlock(1024, 512, namePrefix="dec4")
+        
+        self.upconv3 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
+        self.decoder3 = self.CNNBlock(512, 256, namePrefix="dec3")
+        
+        self.upconv2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
+        self.decoder2 = self.CNNBlock(256, 128, namePrefix="dec2")
+        
+        self.upconv1 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
+        self.decoder1 = self.CNNBlock(128, 64, namePrefix="dec1")
+        
+        self.conv_final = nn.Conv2d(64, 1, kernel_size=1)
+        
+        self.patch_size = patch_size
+    @staticmethod
+    def CNNBlock(num_channels_in, features, namePrefix):
+        block_kernel_size = 3
+        block_padding = 1
+        conv1 = (namePrefix + "conv1",
+                 nn.Conv2d(
+                     in_channels=num_channels_in,
+                     out_channels=features,
+                     kernel_size=block_kernel_size,
+                     padding=block_padding,
+                     bias=False,
+                 ))
+        norm1 = (namePrefix + "norm1", nn.BatchNorm2d(num_features=features))
+        relu1 = (namePrefix + "relu1", nn.ReLU(inplace=True))
+        conv2 = (namePrefix + "conv2",
+                 nn.Conv2d(
+                     in_channels=features,
+                     out_channels=features,
+                     kernel_size=block_kernel_size,
+                     padding=block_padding,
+                     bias=False,
+                 ))
+        norm2 = (namePrefix + "norm2", nn.BatchNorm2d(num_features=features))
+        relu2 = (namePrefix + "relu2", nn.ReLU(inplace=True))
+        return nn.Sequential(collections.OrderedDict([conv1, norm1, relu1, conv2, norm2, relu2]))
+    
+    def forward(self, x):
+        # Encoder path
+        e1 = self.encoder1(x)
+        p1 = self.maxpool(e1)
+        
+        e2 = self.encoder2(p1)
+        p2 = self.maxpool(e2)
+        
+        e3 = self.encoder3(p2)
+        p3 = self.maxpool(e3)
+        
+        e4 = self.encoder4(p3)
+        p4 = self.maxpool(e4)
+        
+        # Bottleneck: ViT
+        b = self.conv_proj(p4)  # Project to embedding dimension
+        batch_size, embed_dim, H, W = b.shape
+        b = b.flatten(2).permute(0, 2, 1)  # Flatten and prepare for Transformer (B, N, D)
+        # b = b + self.pos_embedding # Add positional embedding
+        # b = self.transformer(b)  # Transformer Encoder
+
+        b = b.permute(0, 2, 1).view(batch_size, embed_dim, H, W)  # Reshape back to 2D feature map
+        # b = self.bottleneck(p4)
+        # Decoder path
+        d4 = self.upconv4(b)
+        d4 = self.decoder4(torch.cat((d4, e4), dim=1))
+        
+        d3 = self.upconv3(d4)
+        d3 = self.decoder3(torch.cat((d3, e3), dim=1))
+        
+        d2 = self.upconv2(d3)
+        d2 = self.decoder2(torch.cat((d2, e2), dim=1))
+        
+        d1 = self.upconv1(d2)
+        d1 = self.decoder1(torch.cat((d1, e1), dim=1))
+        
+        return torch.sigmoid(self.conv_final(d1))  # Output (batch_size, 1, H, W)
 

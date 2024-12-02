@@ -3,7 +3,7 @@ from torch import nn, optim
 from torchvision import transforms
 import torch
 from src.enc_dec import ViTEncoder, Decoder
-from datapreprocess.dataloader import RoadSegmentationDataset,img_crop,value_to_class,extract_labels,extract_labels_torch
+from datapreprocess.dataloader import RoadSegmentationDataset,img_crop,value_to_class,extract_labels_torch2,extract_labels_torch
 
 from torchvision.models import vit_b_16
 from src.enc_dec import ViTEncoderDecoder
@@ -72,9 +72,9 @@ if __name__ == "__main__":
     print (len(val_loader))
 
     # Initialize model, loss, and optimizer
-    model = ViTEncoderDecoder(patch_size=PATCH_SIZE)
+    model = ViTEncoderDecoder(patch_size=16)
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4, betas=(0.9, 0.99))
+    optimizer = optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-4, betas=(0.9, 0.99))
 
 
     # Training loop
@@ -101,33 +101,58 @@ if __name__ == "__main__":
             #     outputs = outputs.detach()
             # if outputs.is_cuda:
             #     outputs = outputs.cpu()
+            # loss = F.mse_loss(outputs,labels)
+            # # bce_loss = dice_loss_fn(torch.sigmoid(outputs), labels)
+            # # loss = bce_loss + loss
+            # # Backward pass and optimization
+            # optimizer.zero_grad()
+            # loss.backward()
+            # optimizer.step()
+            # dice_loss_fn = DiceLoss()
             outputs2=[]
             for output in outputs:
-                output = output.squeeze(0)
-                output2 = extract_labels_torch(output,image_PZ=2)
+                output = output.squeeze()
+                output2 = extract_labels_torch(output,image_PZ=16)
                 outputs2.append(output2.clone())
-            outputs = torch.stack(outputs2)
-            outputs.to(labels.device)
-            # print('outputs',outputs.shape,file=sys.stdout, flush=True)
-            # print('labels',labels.shape,file=sys.stdout, flush=True)
-            loss = criterion(outputs, labels)
+            labels2=[]
+            for label in labels:
+                label = extract_labels_torch2(label,image_PZ=16)
+                labels2.append(label.clone())
 
+            outputs = torch.stack(outputs2)
+            outputs = outputs.squeeze()
+            labels = torch.stack(labels2)
+            labels = labels.squeeze()
+            outputs.to(labels.device)
+            # loss = F.mse_loss(outputs,labels)
+            dice_loss_fn = DiceLoss()
+            loss = dice_loss_fn(outputs, labels)
+            recon_loss = F.mse_loss(outputs, labels)
+            # bce_loss = dice_loss_fn(torch.sigmoid(outputs), labels)
+            loss = recon_loss + loss
             # Backward pass and optimization
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
+            # dice_loss_fn = DiceLoss()
+            # print('outputs',outputs.shape,file=sys.stdout, flush=True)
+            # print('labels',labels.shape,file=sys.stdout, flush=True)
+            
             running_loss += loss.item()
             preds = predict_labels(outputs)
             true_labels = predict_labels(labels)
-
+            # print('outputs',preds.shape,file=sys.stdout, flush=True)
+            # print('labels',true_labels.shape,file=sys.stdout, flush=True)
             total_accuracy += accuracy_score_tensors(true_labels, preds)
             total_f1 += f1_score_tensors(true_labels, preds)
+            total_accuracy/=len(train_loader)
+            total_f1/=len(train_loader)
 
         
         scheduler.step()
 
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {running_loss / len(train_loader):.4f}", file=sys.stdout, flush=True)
+        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {running_loss / len(train_loader):.4f}, Accuracy: {total_accuracy:.4f}, F1 Score: {total_f1:.4f}", file=sys.stdout, flush=True)
+
 
         # Validation step
         model.eval()
@@ -141,13 +166,26 @@ if __name__ == "__main__":
                 outputs2=[]
                 for output in outputs:
                     output = output.squeeze()
-                    output2 = extract_labels_torch(output,image_PZ=2)
+                    output2 = extract_labels_torch(output,image_PZ=16)
                     outputs2.append(output2.clone())
+
+                labels2=[]
+                for label in labels:
+                    label =label.squeeze()
+                    label = extract_labels_torch2(label,image_PZ=16)
+                    labels2.append(label.clone())
+
+                outputs = torch.stack(outputs2)
+                labels = torch.stack(labels2)
+                outputs.to(labels.device)
                 outputs = torch.stack(outputs2)
                 outputs.to(labels.device)
-
-                loss = criterion(outputs, labels)
-                val_loss += loss.item()
+                outputs = torch.stack(outputs2)
+                outputs = outputs.squeeze()
+                labels = torch.stack(labels2)
+                labels = labels.squeeze()
+                # loss = criterion(outputs, labels)
+                # val_loss += loss.item()
 
                 preds = predict_labels(outputs)
                 true_labels = predict_labels(labels)
@@ -155,9 +193,9 @@ if __name__ == "__main__":
                 val_accuracy += accuracy_score_tensors(true_labels, preds)
                 val_f1 += f1_score_tensors(true_labels, preds)
 
-            val_loss /= len(val_loader)
+            # val_loss /= len(val_loader)
             val_accuracy /= len(val_loader)
             val_f1 /= len(val_loader)
-            print(f"Validation Loss: {val_loss:.4f}, Accuracy: {val_accuracy:.4f}, F1 Score: {val_f1:.4f}", file=sys.stdout, flush=True)
+            print(f"Accuracy: {val_accuracy:.4f}, F1 Score: {val_f1:.4f}", file=sys.stdout, flush=True)
 
 print("Training completed.")
