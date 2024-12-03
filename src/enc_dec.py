@@ -200,14 +200,14 @@ class ViTEncoderDecoder(nn.Module):
         p4 = self.maxpool(e4)
         
         # Bottleneck: ViT
-        b = self.conv_proj(p4)  # Project to embedding dimension
-        batch_size, embed_dim, H, W = b.shape
-        b = b.flatten(2).permute(0, 2, 1)  # Flatten and prepare for Transformer (B, N, D)
-        # b = b + self.pos_embedding # Add positional embedding
-        # b = self.transformer(b)  # Transformer Encoder
+        # b = self.conv_proj(p4)  # Project to embedding dimension
+        # batch_size, embed_dim, H, W = b.shape
+        # b = b.flatten(2).permute(0, 2, 1)  # Flatten and prepare for Transformer (B, N, D)
+        # # b = b + self.pos_embedding # Add positional embedding
+        # # b = self.transformer(b)  # Transformer Encoder
 
-        b = b.permute(0, 2, 1).view(batch_size, embed_dim, H, W)  # Reshape back to 2D feature map
-        # b = self.bottleneck(p4)
+        # b = b.permute(0, 2, 1).view(batch_size, embed_dim, H, W)  # Reshape back to 2D feature map
+        b = self.bottleneck(p4)
         # Decoder path
         d4 = self.upconv4(b)
         d4 = self.decoder4(torch.cat((d4, e4), dim=1))

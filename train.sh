@@ -3,7 +3,7 @@
 #SBATCH --output=slurm_out11/%j.out
 #SBATCH --error=slurm_out11/%j.err
 #SBATCH --mem=80G                      
-#SBATCH --time=00:20:00
+#SBATCH --time=00:40:00
 #SBATCH --partition=h100
 #SBATCH --cpus-per-task=40
 #SBATCH --ntasks=1

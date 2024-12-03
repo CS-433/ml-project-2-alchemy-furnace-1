@@ -10,4 +10,4 @@ def f1_score_tensors(y_true, y_pred):
 
 # predict
 def predict_labels(output, threshold=0.25):
-    return (output > threshold)
+    return (output > threshold).float()

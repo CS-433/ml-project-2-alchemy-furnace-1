@@ -90,63 +90,40 @@ if __name__ == "__main__":
         total_f1 = 0.0
         for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)
-            # print('images.shape:', images.shape)
-            # print('labels.shape:', labels.shape)
-            # Forward pass
             outputs = model(images)
-            # print('outputs',outputs.shape,file=sys.stdout, flush=True)
-            # if outputs.shape[1] == 1:
-            #     outputs = outputs.squeeze(1)
-            # if outputs.requires_grad:
-            #     outputs = outputs.detach()
-            # if outputs.is_cuda:
-            #     outputs = outputs.cpu()
-            # loss = F.mse_loss(outputs,labels)
-            # # bce_loss = dice_loss_fn(torch.sigmoid(outputs), labels)
-            # # loss = bce_loss + loss
-            # # Backward pass and optimization
-            # optimizer.zero_grad()
-            # loss.backward()
-            # optimizer.step()
-            # dice_loss_fn = DiceLoss()
-            outputs2=[]
-            for output in outputs:
-                output = output.squeeze()
-                output2 = extract_labels_torch(output,image_PZ=16)
-                outputs2.append(output2.clone())
-            labels2=[]
-            for label in labels:
-                label = extract_labels_torch2(label,image_PZ=16)
-                labels2.append(label.clone())
+ 
+            outputs2 = [extract_labels_torch(output.squeeze(), image_PZ=4) for output in outputs]
+            labels2 = [extract_labels_torch2(label, image_PZ=4) for label in labels]
 
-            outputs = torch.stack(outputs2)
-            outputs = outputs.squeeze()
-            labels = torch.stack(labels2)
-            labels = labels.squeeze()
-            outputs.to(labels.device)
+            outputs = torch.stack(outputs2).squeeze()
+            labels = torch.stack(labels2).squeeze()
+
+            
+            outputs = outputs.to(labels.device)
             # loss = F.mse_loss(outputs,labels)
             dice_loss_fn = DiceLoss()
             loss = dice_loss_fn(outputs, labels)
+            # print('loss',loss,file=sys.stdout, flush=True)
             recon_loss = F.mse_loss(outputs, labels)
+            # print('recon_loss',recon_loss,file=sys.stdout, flush=True)
             # bce_loss = dice_loss_fn(torch.sigmoid(outputs), labels)
             loss = recon_loss + loss
             # Backward pass and optimization
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            # dice_loss_fn = DiceLoss()
             # print('outputs',outputs.shape,file=sys.stdout, flush=True)
             # print('labels',labels.shape,file=sys.stdout, flush=True)
             
             running_loss += loss.item()
             preds = predict_labels(outputs)
-            true_labels = predict_labels(labels)
+            true_labels = labels
             # print('outputs',preds.shape,file=sys.stdout, flush=True)
             # print('labels',true_labels.shape,file=sys.stdout, flush=True)
             total_accuracy += accuracy_score_tensors(true_labels, preds)
             total_f1 += f1_score_tensors(true_labels, preds)
-            total_accuracy/=len(train_loader)
-            total_f1/=len(train_loader)
+        total_accuracy/=len(train_loader)
+        total_f1/=len(train_loader)
 
         
         scheduler.step()
