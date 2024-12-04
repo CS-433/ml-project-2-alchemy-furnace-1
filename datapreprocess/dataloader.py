@@ -62,6 +62,8 @@ def extract_labels_torch2(gt_img, image_PZ=16):
     return labels_tensor
 import torch
 
+import torch
+
 def extract_labels_torch(gt_img, image_PZ=16):
     """
     Extract the labels into a 1-hot matrix [image index, label index] using PyTorch operations.

@@ -91,30 +91,39 @@ if __name__ == "__main__":
         for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
- 
-            outputs2 = [extract_labels_torch(output.squeeze(), image_PZ=4) for output in outputs]
-            labels2 = [extract_labels_torch2(label, image_PZ=4) for label in labels]
+            outputs = outputs.squeeze()
+            # labels = labels.squeeze()
+            # outputs2 = [extract_labels_torch2(output.squeeze(), image_PZ=4) for output in outputs]
 
-            outputs = torch.stack(outputs2).squeeze()
+            labels2 = [extract_labels_torch2(label, image_PZ=16) for label in labels]
+
+            # outputs = torch.stack(outputs2).squeeze()
             labels = torch.stack(labels2).squeeze()
-
+            # print('outputs',outputs.shape,file=sys.stdout, flush=True)
+            # print('outputs',outputs.shape,file=sys.stdout, flush=True)
+            # outputs = extract_labels_torch2(outputs.squeeze(), image_PZ=4)
+            # labels = extract_labels_torch2(labels.squeeze(), image_PZ=4)
             
-            outputs = outputs.to(labels.device)
+            # outputs = outputs.to(labels.device)
             # loss = F.mse_loss(outputs,labels)
             dice_loss_fn = DiceLoss()
             loss = dice_loss_fn(outputs, labels)
             # print('loss',loss,file=sys.stdout, flush=True)
-            recon_loss = F.mse_loss(outputs, labels)
+            # recon_loss = F.mse_loss(outputs, labels)
             # print('recon_loss',recon_loss,file=sys.stdout, flush=True)
             # bce_loss = dice_loss_fn(torch.sigmoid(outputs), labels)
-            loss = recon_loss + loss
+            # loss = recon_loss + loss
             # Backward pass and optimization
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             # print('outputs',outputs.shape,file=sys.stdout, flush=True)
-            # print('labels',labels.shape,file=sys.stdout, flush=True)
-            
+            # print('outputs',outputs.shape,file=sys.stdout, flush=True)
+            # outputs2 = [extract_labels_torch2(output.squeeze(), image_PZ=16) for output in outputs]
+            # labels2 = [extract_labels_torch2(label, image_PZ=16) for label in labels]
+
+            # outputs = torch.stack(outputs2).squeeze()
+            # labels = torch.stack(labels2).squeeze()
             running_loss += loss.item()
             preds = predict_labels(outputs)
             true_labels = labels

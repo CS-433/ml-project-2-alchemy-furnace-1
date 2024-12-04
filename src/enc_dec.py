@@ -63,6 +63,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 from torchvision.models import vit_b_16
 import collections
+import sys
 class Patchify(nn.Module):
     def __init__(self, patch_size=16):
         super(Patchify, self).__init__()
@@ -209,17 +210,18 @@ class ViTEncoderDecoder(nn.Module):
         # b = b.permute(0, 2, 1).view(batch_size, embed_dim, H, W)  # Reshape back to 2D feature map
         b = self.bottleneck(p4)
         # Decoder path
-        d4 = self.upconv4(b)
-        d4 = self.decoder4(torch.cat((d4, e4), dim=1))
+        # d4 = self.upconv4(b)
+        # d4 = self.decoder4(torch.cat((d4, e4), dim=1))
         
-        d3 = self.upconv3(d4)
-        d3 = self.decoder3(torch.cat((d3, e3), dim=1))
+        # d3 = self.upconv3(d4)
+        # d3 = self.decoder3(torch.cat((d3, e3), dim=1))
         
-        d2 = self.upconv2(d3)
-        d2 = self.decoder2(torch.cat((d2, e2), dim=1))
+        # d2 = self.upconv2(d3)
+        # d2 = self.decoder2(torch.cat((d2, e2), dim=1))
+        # # print('outputs',d2.shape,file=sys.stdout, flush=True)
+        # d1 = self.upconv1(d2)
+        # d1 = self.decoder1(torch.cat((d1, e1), dim=1))
+        # print('outputs',d1.shape,file=sys.stdout, flush=True)
         
-        d1 = self.upconv1(d2)
-        d1 = self.decoder1(torch.cat((d1, e1), dim=1))
-        
-        return torch.sigmoid(self.conv_final(d1))  # Output (batch_size, 1, H, W)
+        return torch.sigmoid(self.conv_final(b))  # Output (batch_size, 1, H, W)
 
