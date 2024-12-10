@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.data_loading import BasicDataset
 from unet import UNet
 from utils.utils import plot_img_and_mask
-
+from scripts.mask_to_submission import masks_to_submission
 def predict_img(net,
                 full_img,
                 device,
@@ -85,7 +85,7 @@ def mask_to_image(mask: np.ndarray, mask_values):
 
 if __name__ == '__main__':
     args = get_args()
-    args.model = 'checkpoints/checkpoint_epoch20_0.7186881899833679.pth'
+    args.model = 'checkpoints/12-10_21-04-37/ckpt_e24_0.8996740579605103.pth'
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     input_path = 'datasets/test_set_images'
     input_images = glob.glob(os.path.join(input_path, '*/*.png'))
@@ -101,6 +101,7 @@ if __name__ == '__main__':
 
     net.to(device=device)
     state_dict = torch.load(args.model, map_location=device)
+    state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
     mask_values = state_dict.pop('mask_values', [0, 1])
     net.load_state_dict(state_dict)
 
@@ -121,6 +122,15 @@ if __name__ == '__main__':
             result = mask_to_image(mask, mask_values)
             result.save(out_filename)
             logging.info(f'Mask saved to {out_filename}')
+            
+    submission_filename = f'submission_{args.model.split("/")[-1].split(".pth")[0]}.csv'
+    print(submission_filename)
+    image_filenames = []
+    files_path = out_files[0].rsplit('/', 1)[0]
+    for i in range(1, 51):
+        image_filename = os.path.join(files_path, 'test_' + str(i) + '_OUT.png')
+        image_filenames.append(image_filename)
+    masks_to_submission(submission_filename, *image_filenames)
 
         # if args.viz:
         #     logging.info(f'Visualizing results for image {filename}, close to continue...')

@@ -40,7 +40,7 @@ def masks_to_submission(submission_filename, *image_filenames):
 if __name__ == '__main__':
     submission_filename = 'submission.csv'
     image_filenames = []
-    files_path = 'outputs/checkpoint_epoch20_0.7186881899833679'
+    files_path = 'outputs/ckpt_e12_0.7601833343505859'
     for i in range(1, 51):
         image_filename = os.path.join(files_path, 'test_' + str(i) + '_OUT.png')
         image_filenames.append(image_filename)
