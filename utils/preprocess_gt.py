@@ -6,8 +6,8 @@ import numpy as np
 from PIL import Image
 from os.path import splitext
 from glob import glob
-path = 'datasets/training/groundtruth'
-path2 = 'datasets/training/groundtruth_binary'
+path = 'training/groundtruth'
+path2 = 'training/groundtruth_binary'
 targets = glob(path + '/*.png')
 for t in targets:
     img = Image.open(t)

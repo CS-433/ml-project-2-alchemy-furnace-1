@@ -20,8 +20,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.data_loading import BasicDataset, CarvanaDataset
 from utils.dice_score import dice_loss
 
-dir_img = Path('datasets/training/images')
-dir_mask = Path('datasets/training/groundtruth_binary')
+dir_img = Path('/home/yifwang/ml-project-2-alchemy-furnace-1/training/images')
+dir_mask = Path('/home/yifwang/ml-project-2-alchemy-furnace-1/training/groundtruth_binary')
 dir_checkpoint = Path('./checkpoints/')
 
 
@@ -35,7 +35,7 @@ def train_model(
         save_checkpoint: bool = True,
         img_scale: float = 0.5,
         amp: bool = False,
-        weight_decay: float = 1e-8,
+        weight_decay: float = 3e-4,
         momentum: float = 0.999,
         gradient_clipping: float = 1.0,
 ):
@@ -71,12 +71,19 @@ def train_model(
     ''')
 
     # 4. Set up the optimizer, the loss, the learning rate scheduler and the loss scaling for AMP
-    optimizer = optim.RMSprop(model.parameters(),
-                              lr=learning_rate, weight_decay=weight_decay, momentum=momentum, foreach=True)
-    #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=5)  # goal: maximize Dice score
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-7)
-
-    grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
+    optimizer = optim.AdamW(
+    model.parameters(),
+    lr=learning_rate,
+    weight_decay=weight_decay,
+    betas=(0.9, 0.999)  # 默认 beta 参数
+)
+# Adjusting the scheduler for Adam optimizer
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, 
+        T_max=epochs, 
+        eta_min=1e-5
+    )
+    grad_scaler = torch.amp.GradScaler('cuda', enabled=amp)
     criterion = nn.CrossEntropyLoss() if model.n_classes > 1 else nn.BCEWithLogitsLoss()
     global_step = 0
 
@@ -139,8 +146,8 @@ def train_model(
                                 histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
 
                         val_score = evaluate(model, val_loader, device, amp)
-                        scheduler.step(val_score)
-
+                        # scheduler.step(val_score)
+                        
                         logging.info('Validation Dice score: {}'.format(val_score))
                         try:
                             experiment.log({
@@ -157,7 +164,8 @@ def train_model(
                             })
                         except:
                             pass
-        if epoch % 5 == 0 or epoch == epochs:
+        scheduler.step()
+        if epoch % 20 == 0 or epoch == epochs:
             if save_checkpoint:
                 Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
                 state_dict = model.state_dict()
