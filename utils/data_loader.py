@@ -95,7 +95,20 @@ class Rotate45(object):
         gt_image_resized = F.resize(gt_image_resized, size=(H, W))
 
         return {'image': image_resized, 'gt_image': gt_image_resized}
+
+class Gaussian_Noise(object):
+    def __init__(self, std=0.1):
+        self.std = std
+    def __call__(self, sample):
+        image, gt_image = sample['image'], sample['gt_image']  
+        noise = torch.randn_like(image) * self.std
+        image += noise
+        image = torch.clamp(image, 0, 1)
+
+        return {'image': image, 'gt_image': gt_image}
         
+
+
         
 
 class RoadSegmentationDataset(Dataset):
@@ -125,11 +138,9 @@ class RoadSegmentationDataset(Dataset):
         if self.transform:
             sample = self.transform(sample)
 
-        gt_image = compress_image(sample['gt_image'])
-
         sample = {
-            'image':image,
-            'gt_image':gt_image
+            'image':sample['image'],
+            'gt_image':compress_image(sample['gt_image'])
         }
 
         return sample
@@ -155,9 +166,7 @@ class RoadSegmentationDataset_Augmented(Dataset):
         
         image = load_image(image_paths[original_idx])
         gt_image = load_image(gt_paths[original_idx], gt=True)
-                
-        
-        
+                        
         sample = {
             'image':image,
             'gt_image':gt_image
@@ -169,11 +178,9 @@ class RoadSegmentationDataset_Augmented(Dataset):
         if self.transform:
             sample = self.transform(sample)
 
-        gt_image = compress_image(sample['gt_image'])
-
         sample = {
-            'image':image,
-            'gt_image':gt_image
+            'image':sample['image'],
+            'gt_image':compress_image(sample['gt_image'])
         }
 
         return sample
@@ -211,16 +218,18 @@ class RoadSegmentationDataset_Rotated(Dataset):
             sample = self.augmentation(sample)  
 
         if augmentation_idx == 2:
-            sample = self.rotation(sample) 
+            if random.random() < 0.34:
+                sample = self.rotation(sample) 
+            else:
+                sample = self.augmentation(sample)
+            
                  
         if self.transform:
             sample = self.transform(sample)
         
-        gt_image = compress_image(sample['gt_image'])
-
         sample = {
-            'image':image,
-            'gt_image':gt_image
+            'image':sample['image'],
+            'gt_image':compress_image(sample['gt_image'])
         }
 
         return sample
@@ -247,5 +256,53 @@ class TestSet(Dataset):
 
         if self.transform:
             sample = self.transform(sample)
+
+        return sample
+
+class RoadSegmentationDataset_NonDuplicated(Dataset):
+    def __init__(self, root_dir, files, transform=None):
+        self.root_dir = root_dir
+        self.image_dir = self.root_dir + "images/"
+        self.gt_dir = self.root_dir + "groundtruth/"
+        self.files = files
+        self.RFlip = RandomHFlip()
+        self.RRotate = RandomRotate()
+        self.Rotate45 = Rotate45()
+        self.Noise = Gaussian_Noise()
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.files)
+
+    def __getitem__(self, idx):
+        image_paths = [self.image_dir + f for f in self.files]
+        gt_paths = [self.gt_dir + f for f in self.files]
+        
+        image = load_image(image_paths[idx])
+        gt_image = load_image(gt_paths[idx], gt=True)
+
+        
+        sample = {
+            'image':image,
+            'gt_image':gt_image
+        }
+
+        sample = self.RFlip(sample)
+
+        if random.random() < 0.5:
+            sample = self.RRotate(sample)
+
+        if random.random() < 0.1:
+            sample = self.Rotate45(sample)
+
+        sample = self.Noise(sample)
+        
+        if self.transform:
+            sample = self.transform(sample)
+
+        sample = {
+            'image':sample['image'],
+            'gt_image':compress_image(sample['gt_image'])
+        }
 
         return sample
