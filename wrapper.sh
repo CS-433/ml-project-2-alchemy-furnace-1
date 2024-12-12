@@ -14,6 +14,6 @@ nvidia-smi -l 10 > gpu_usage.log &
 
 source ~/miniconda3/bin/activate base
 
-#python scripts/train.py --epochs 30 --batch-size 2 --learning-rate 2.5e-5  --scale 0.5 --validation 10.0  --classes 2 #--amp --bilinear
+#python scripts/train.py --epochs 30 --batch-size 2 --learning-rate 2e-4 --weight-decay 1e-5  --scale 0.5 --validation 10.0  --classes 2 #--amp --bilinear
 python predict.py
 

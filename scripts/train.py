@@ -22,8 +22,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.data_loading import BasicDataset, CarvanaDataset
 from utils.dice_score import dice_loss
 
-dir_img = Path('datasets/training/images')
-dir_mask = Path('datasets/training/groundtruth_binary')
+dir_img = Path('datasets/training/images_train')
+dir_mask = Path('datasets/training/groundtruth_binary_train')
 val_img = Path('datasets/training/val_image')
 val_mask = Path('datasets/training/val_mask')
 
@@ -32,7 +32,9 @@ augmented_dir = {
     'rotation_mask': 'datasets/training/groundtruth_rotation',
     'rotation_img': 'datasets/training/image_rotation',
     'flip_mask': 'datasets/training/groundtruth_flip',
-    'flip_img': 'datasets/training/image_flip'
+    'flip_img': 'datasets/training/image_flip',
+    'rotation45_mask': 'datasets/training/groundtruth_rotation45',
+    'rotation45_img': 'datasets/training/image_rotation45'
 }
 
 def train_model(
@@ -73,7 +75,8 @@ def train_model(
     augmented_datasets = {}
     for key, (mask_dir, img_dir) in [
         ('rotation', (augmented_dir['rotation_mask'], augmented_dir['rotation_img'])),
-        ('flip', (augmented_dir['flip_mask'], augmented_dir['flip_img']))
+        ('flip', (augmented_dir['flip_mask'], augmented_dir['flip_img'])),
+        ('rotation45', (augmented_dir['rotation45_mask'], augmented_dir['rotation45_img']))
     ]:
         aug_dataset = BasicDataset(img_dir, mask_dir, img_scale)
         augmented_datasets[key] = aug_dataset
@@ -216,6 +219,7 @@ def get_args():
     parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=1, help='Batch size')
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-5,
                         help='Learning rate', dest='lr')
+    parser.add_argument('--weight-decay', '-wd', type=float, default=1e-5, help='Weight decay')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
     parser.add_argument('--scale', '-s', type=float, default=0.5, help='Downscaling factor of the images')
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
@@ -263,7 +267,8 @@ if __name__ == '__main__':
             device=device,
             img_scale=args.scale,
             val_percent=args.val / 100,
-            amp=args.amp
+            amp=args.amp,
+            weight_decay=args.weight_decay
         )
     except torch.cuda.OutOfMemoryError:
         logging.error('Detected OutOfMemoryError! '
@@ -279,5 +284,6 @@ if __name__ == '__main__':
             device=device,
             img_scale=args.scale,
             val_percent=args.val / 100,
-            amp=args.amp
+            amp=args.amp,
+            weight_decay=args.weight_decay
         )
