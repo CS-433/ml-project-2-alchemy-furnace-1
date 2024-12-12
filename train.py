@@ -5,6 +5,7 @@ import os
 import random
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -16,7 +17,7 @@ import wandb
 from tqdm import tqdm
 
 from utils.data_loader import view_image, load_image
-from utils.data_loader import RoadSegmentationDataset, RoadSegmentationDataset_Augmented, RoadSegmentationDataset_Rotated
+from utils.data_loader import RoadSegmentationDataset, RoadSegmentationDataset_Augmented, RoadSegmentationDataset_Rotated, RoadSegmentationDataset_NonDuplicated
 from utils.data_loader import RandomRotate, RandomHFlip
 from utils.dice_score import dice_loss, f1_loss
 from unet_mini import UNetMini, UNetMiniPro
@@ -38,7 +39,8 @@ def train(
         weight_decay: float = 1e-5,
         momentum: float = 0.999,
         gradient_clipping: float = 1.0,
-        thres: float = 0.25
+        init_thres: float = 0.25,
+        init_thre_lr: float = 0.02
 ):
     
 
@@ -55,7 +57,7 @@ def train(
 
     # 2. Create the train set and the validation set
     tsfm = transforms.Compose([RandomHFlip(prob=0.5), RandomRotate()])
-    train_set = RoadSegmentationDataset_Rotated(root_dir, train_files, transform=None)
+    train_set = RoadSegmentationDataset_NonDuplicated(root_dir, train_files, transform=None)
     val_set = RoadSegmentationDataset(root_dir, val_files)
 
     # 3. Create data loaders
@@ -89,6 +91,12 @@ def train(
     criterion = nn.BCEWithLogitsLoss()
     global_step = 0
 
+    thres = init_thres
+    # thre_lr_max = init_thre_lr
+    # thre_lr_min = 1e-7
+    # Ti = 1
+    # Tcur = 1
+
     for epoch in range(1, epochs + 1):
         model.train()
         epoch_loss = 0
@@ -109,6 +117,18 @@ def train(
                 torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
                 grad_scaler.step(optimizer)
                 grad_scaler.update()
+
+                # best_f1_loss_ = 100
+                # best_thres = 0
+
+                # thre_lr = thre_lr_min + 0.5 * (thre_lr_max - thre_lr_min) * (1 + np.cos((Tcur / Ti * np.pi)))
+                # for t in np.arange(thres - 1 * thre_lr, thres + 2 * thre_lr, thre_lr):
+                    # f1_loss_ = f1_loss(F.sigmoid(y_pred.squeeze(1)), batch_y.squeeze(1), thres=t) / max(batch_size, 1)
+                    # if f1_loss_.item() < best_f1_loss_:
+                        # best_f1_loss_ = f1_loss_.item()
+                        # best_thres = t
+
+                # thres = best_thres
 
                 pbar.update(batch_x.shape[0])
                 global_step += 1
@@ -133,7 +153,7 @@ def train(
                                 histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
 
                         val_score = evaluate(model, val_loader, device, amp, thres)
-                        
+
                         logging.info('Validation Dice / F1 Score: {}'.format(val_score))
                         try:
                             experiment.log({
@@ -155,6 +175,12 @@ def train(
                             pass
 
         scheduler.step(val_score)
+        # if Tcur == Ti:
+            # Tcur = 0
+            # Ti += 1
+        # else:
+            # Tcur += 1
+
         if save_checkpoint:
             Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
             state_dict = model.state_dict()
@@ -173,9 +199,11 @@ weight_decay = 1e-5
 momentum = 0.999
 gradient_clipping = 1.0
 thres = 0.3
+init_thre_lr = 0.02
+
 
 model_seg = UNetMiniPro(n_channels=3).to(device)
-train(model_seg, device, epochs, batch_size, learning_rate, val_percent, save_checkpoint, amp, weight_decay, momentum, gradient_clipping, thres)
+train(model_seg, device, epochs, batch_size, learning_rate, val_percent, save_checkpoint, amp, weight_decay, momentum, gradient_clipping, thres, init_thre_lr)
 
 root_dir = './training/'
 image_dir = root_dir + "images/"
