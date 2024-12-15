@@ -33,7 +33,43 @@ def unique_mask_values(idx, mask_dir, mask_suffix):
         return np.unique(mask, axis=0)
     else:
         raise ValueError(f'Loaded masks should have 2 or 3 dimensions, found {mask.ndim}')
+    
+from torchvision import transforms
+color_transform = transforms.ColorJitter(
+    brightness=0.1,  # 亮度变化范围，可根据需要调整
+    contrast=0.1,    # 对比度变化范围
+    saturation=0.1,  # 饱和度变化范围
+    hue=0.02          # 色相变化范围(-0.5~0.5之间)
+)
+def add_random_shadow(img, num_shadows=1):
+    # img: C,H,W
+    # 根据H,W随机生成阴影区域（例如一条暗线或暗斑）
+        C, H, W = img.shape
+        for _ in range(num_shadows):
+            # 随机生成一条线性阴影区域
+            x1, y1 = np.random.randint(0, W), np.random.randint(0, H)
+            x2 = x1 + np.random.randint(0, W//4)
+            y2 = y1 + np.random.randint(0, H//4)
+            
+            # 确定线段区域并加深该区域亮度
+            # 简单方式：对位于两点间的像素降低亮度
+            shadow_mask = np.zeros((H, W), dtype=bool)
+            # 此处可根据需要生成更平滑、更形态多样的阴影
+            # 简化：对线段附近像素做遮挡
+            thickness = 10
+            # 利用直线方程判断像素是否在阴影区域内
+            for i in range(H):
+                for j in range(W):
+                    dist = abs((y2-y1)*j - (x2-x1)*i + x2*y1 - y2*x1) / (np.sqrt((y2-y1)**2+(x2-x1)**2)+1e-6)
+                    if dist < thickness:
+                        shadow_mask[i, j] = True
+            
+            # 将shadow_mask覆盖的地方亮度减少
+            img[:, shadow_mask] *= np.random.uniform(0.5, 0.7)
 
+        # clip一下
+        img = np.clip(img, 0, 1.0)
+        return img
 
 class BasicDataset(Dataset):
     def __init__(self, images_dir: str, mask_dir: str, scale: float = 1.0, mask_suffix: str = ''):
@@ -60,13 +96,16 @@ class BasicDataset(Dataset):
 
     def __len__(self):
         return len(self.ids)
-
+    
+    
     @staticmethod
-    def preprocess(mask_values, pil_img, scale, is_mask):
+    def preprocess(mask_values, pil_img, scale, is_mask, noise_std=0.015):
         w, h = pil_img.size
         newW, newH = int(scale * w), int(scale * h)
         assert newW > 0 and newH > 0, 'Scale is too small, resized images would have no pixel'
         pil_img = pil_img.resize((newW, newH), resample=Image.NEAREST if is_mask else Image.BICUBIC)
+        # pil_img = color_transform(pil_img)
+
         img = np.asarray(pil_img)
 
         if is_mask:
@@ -84,10 +123,17 @@ class BasicDataset(Dataset):
                 img = img[np.newaxis, ...]
             else:
                 img = img.transpose((2, 0, 1))
-
+            # img = img.astype(np.float32)
             if (img > 1).any():
                 img = img / 255.0
+            img = img.astype(np.float32)
 
+            # noise = np.random.normal(0, noise_std, img.shape).astype(np.float32)
+            # img = img + noise
+            # img = np.clip(img, 0.0, 1.0)
+            # img = add_random_shadow(img, num_shadows=1)
+    # 再次确保结果在[0,1]范围内，并保持float32类型
+            img = np.clip(img, 0.0, 1.0).astype(np.float32)
             return img
 
     def __getitem__(self, idx):
