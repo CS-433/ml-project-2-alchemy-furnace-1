@@ -12,7 +12,9 @@ from pathlib import Path
 from torch import optim
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
-
+from torch.utils.data import ConcatDataset
+import datetime
+import json
 import wandb
 from evaluate import evaluate
 from unet import UNet
@@ -20,10 +22,22 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.data_loading import BasicDataset, CarvanaDataset
 from utils.dice_score import dice_loss
 
-dir_img = Path('/home/yifwang/ml-project-2-alchemy-furnace-1/training/images2')
-dir_mask = Path('/home/yifwang/ml-project-2-alchemy-furnace-1/training/groundtruth_binary2')
-dir_checkpoint = Path('./checkpoints/')
+dir_img = Path('datasets/training/images_train')
+dir_mask = Path('datasets/training/groundtruth_binary_train')
+val_img = Path('datasets/training/val_image')
+val_mask = Path('datasets/training/val_mask')
 
+dir_checkpoint = Path('./checkpoints/')
+augmented_dir = {
+    'rotation_mask': 'datasets/training/groundtruth_rotation',
+    'rotation_img': 'datasets/training/image_rotation',
+    'flip_mask': 'datasets/training/groundtruth_flip',
+    'flip_img': 'datasets/training/image_flip',
+    'rotation45_mask': 'datasets/training/groundtruth_rotation45',
+    'rotation45_img': 'datasets/training/image_rotation45',
+    'rotation45_maskv3': 'datasets/training/groundtruth_rotation45v3',
+    'rotation45_imgv3': 'datasets/training/image_rotation45v3'
+}
 
 def train_model(
         model,
@@ -35,18 +49,52 @@ def train_model(
         save_checkpoint: bool = True,
         img_scale: float = 0.5,
         amp: bool = False,
-        weight_decay: float = 5e-4,
+        weight_decay: float = 1e-5,
         momentum: float = 0.999,
         gradient_clipping: float = 1.0,
-):
-    # 1. Create dataset
+):  
+    #n_classes = model.module.n_classes
+    
+    output_dir = os.path.join(dir_checkpoint, datetime.datetime.now().strftime('%m-%d_%H-%M-%S'))
+    os.makedirs(output_dir, exist_ok=True)
+    params = {
+        "epochs": epochs,
+        "batch_size": batch_size,
+        "learning_rate": learning_rate,
+        "val_percent": val_percent,
+        "save_checkpoint": save_checkpoint,
+        "img_scale": img_scale,
+        "amp": amp,
+        "weight_decay": weight_decay,
+        "device": device.type,
+    }
+    with open(os.path.join(output_dir, "params.json"), "w") as f:
+        json.dump(params, f, indent=4)
+        
+    # 1. Create original dataset
     dataset = BasicDataset(dir_img, dir_mask, img_scale)
-    # 2. Split into train / validation partitions
-    n_val = int(len(dataset) * val_percent)
-    n_train = len(dataset) - n_val
-    train_set, val_set = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(0))
 
-    # 3. Create data loaders
+    augmented_datasets = {}
+    for key, (mask_dir, img_dir) in [
+        ('rotation', (augmented_dir['rotation_mask'], augmented_dir['rotation_img'])),
+        ('flip', (augmented_dir['flip_mask'], augmented_dir['flip_img'])),
+        ('rotation45', (augmented_dir['rotation45_mask'], augmented_dir['rotation45_img'])),
+        ('rotation45v3', (augmented_dir['rotation45_maskv3'], augmented_dir['rotation45_imgv3']))
+    ]:
+        aug_dataset = BasicDataset(img_dir, mask_dir, img_scale)
+        augmented_datasets[key] = aug_dataset
+
+
+    combined_dataset = ConcatDataset([dataset] + list(augmented_datasets.values()))
+    
+    val_set = BasicDataset(val_img, val_mask, img_scale)
+    train_set = combined_dataset
+    n_val = len(val_set)
+    n_train = len(train_set)
+    
+    
+    
+    # 5. Create data loaders
     loader_args = dict(batch_size=batch_size, num_workers=os.cpu_count(), pin_memory=True)
     train_loader = DataLoader(train_set, shuffle=True, **loader_args)
     val_loader = DataLoader(val_set, shuffle=False, drop_last=True, **loader_args)
@@ -71,54 +119,21 @@ def train_model(
     ''')
 
     # 4. Set up the optimizer, the loss, the learning rate scheduler and the loss scaling for AMP
-    optimizer = optim.AdamW(
-    model.parameters(),
-    lr=learning_rate,
-    weight_decay=weight_decay,
-    betas=(0.9, 0.999)  # 默认 beta 参数
-)
-# Adjusting the scheduler for Adam optimizer
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, 
-        T_max=epochs, 
-        eta_min=1e-5
-    )
+    # optimizer = optim.RMSprop(model.parameters(),
+    #                           lr=learning_rate, weight_decay=weight_decay, momentum=momentum, foreach=True)
+    #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=5)  # goal: maximize Dice score
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
+    # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=2e-5)
+    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2, eta_min=1e-7)
+    # scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
+    #     optimizer, 
+    #     T_0=10,  
+    #     T_mult=3,  
+    #     eta_min=1e-5  
+    # )
     grad_scaler = torch.amp.GradScaler('cuda', enabled=amp)
-    class DiceCrossEntropyLoss(nn.Module):
-        def __init__(self, weight_ce=0.5, weight_dice=0.5, smooth=1e-6):
-            super(DiceCrossEntropyLoss, self).__init__()
-            self.ce = nn.CrossEntropyLoss()
-            self.weight_ce = weight_ce
-            self.weight_dice = weight_dice
-            self.smooth = smooth
-
-        def forward(self, inputs, targets):
-            # inputs: [N, C=2, H, W] (logits)
-            # targets: [N, H, W] (int labels: 0 or 1)
-
-            # 1. CrossEntropyLoss
-            ce_loss = self.ce(inputs, targets)
-
-            # 2. Dice Loss for foreground class
-            # 将logits通过softmax得到概率分布: probs: [N, C=2, H, W]
-            probs = F.softmax(inputs, dim=1)
-
-            # 假设前景是类1 (背景为类0)
-            foreground = probs[:, 1, :, :]  # [N, H, W]
-            foreground_flat = foreground.reshape(-1)
-
-            targets_flat = (targets == 1).float().view(-1)  # 将目标中为1的像素作为前景mask
-
-            intersection = (foreground_flat * targets_flat).sum()
-            dice = (2. * intersection + self.smooth) / (foreground_flat.sum() + targets_flat.sum() + self.smooth)
-            dice_loss = 1 - dice
-
-            # 3. 组合损失
-            loss = self.weight_ce * ce_loss + self.weight_dice * dice_loss
-            return loss
-
-    # criterion = nn.CrossEntropyLoss() if model.n_classes > 1 else nn.BCEWithLogitsLoss()
-    criterion = DiceCrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss() if model.n_classes > 1 else nn.BCEWithLogitsLoss()
     global_step = 0
 
     # 5. Begin training
@@ -180,8 +195,8 @@ def train_model(
                                 histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
 
                         val_score = evaluate(model, val_loader, device, amp)
-                        # scheduler.step(val_score)
-                        
+                        scheduler.step(val_score)
+
                         logging.info('Validation Dice score: {}'.format(val_score))
                         try:
                             experiment.log({
@@ -198,13 +213,12 @@ def train_model(
                             })
                         except:
                             pass
-        scheduler.step()
-        if epoch % 20 == 0 or epoch == epochs:
+        # scheduler.step()
+        if epoch % 10 == 0 or epoch == epochs:
             if save_checkpoint:
-                Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
                 state_dict = model.state_dict()
                 state_dict['mask_values'] = dataset.mask_values
-                torch.save(state_dict, str(dir_checkpoint / 'checkpoint_epoch{}_{}.pth'.format(epoch, val_score)))
+                torch.save(state_dict, os.path.join(output_dir, 'ckpt_e{}_{}.pth'.format(epoch, val_score)))
                 logging.info(f'Checkpoint {epoch} saved!')
 
 
@@ -214,6 +228,7 @@ def get_args():
     parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=1, help='Batch size')
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-5,
                         help='Learning rate', dest='lr')
+    parser.add_argument('--weight-decay', '-wd', type=float, default=1e-5, help='Weight decay')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
     parser.add_argument('--scale', '-s', type=float, default=0.5, help='Downscaling factor of the images')
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
@@ -237,6 +252,7 @@ if __name__ == '__main__':
     # n_classes is the number of probabilities you want to get per pixel
     model = UNet(n_channels=3, n_classes=args.classes, bilinear=args.bilinear)
     model = model.to(memory_format=torch.channels_last)
+    
 
     logging.info(f'Network:\n'
                  f'\t{model.n_channels} input channels\n'
@@ -249,7 +265,8 @@ if __name__ == '__main__':
         model.load_state_dict(state_dict)
         logging.info(f'Model loaded from {args.load}')
 
-    model.to(device=device)
+    # model = torch.nn.DataParallel(model)
+    model = model.to(device=device)
     try:
         train_model(
             model=model,
@@ -259,7 +276,8 @@ if __name__ == '__main__':
             device=device,
             img_scale=args.scale,
             val_percent=args.val / 100,
-            amp=args.amp
+            amp=args.amp,
+            weight_decay=args.weight_decay
         )
     except torch.cuda.OutOfMemoryError:
         logging.error('Detected OutOfMemoryError! '
@@ -275,5 +293,6 @@ if __name__ == '__main__':
             device=device,
             img_scale=args.scale,
             val_percent=args.val / 100,
-            amp=args.amp
+            amp=args.amp,
+            weight_decay=args.weight_decay
         )

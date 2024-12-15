@@ -13,6 +13,7 @@ from utils.data_loading import BasicDataset
 from unet import UNet
 from utils.utils import plot_img_and_mask
 from scripts.mask_to_submission import masks_to_submission
+from scripts.mask_to_submission import masks_to_submission
 def predict_img(net,
                 full_img,
                 device,
@@ -101,6 +102,7 @@ if __name__ == '__main__':
 
     net.to(device=device)
     state_dict = torch.load(args.model, map_location=device)
+    state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
     state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
     mask_values = state_dict.pop('mask_values', [0, 1])
     net.load_state_dict(state_dict)

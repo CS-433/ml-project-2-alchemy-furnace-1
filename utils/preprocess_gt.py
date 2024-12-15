@@ -6,12 +6,14 @@ import numpy as np
 from PIL import Image
 from os.path import splitext
 from glob import glob
-path = 'training/groundtruth'
-path2 = 'training/groundtruth_binary'
+import os
+path = 'datasets/training/groundtruth'
+path2 = 'datasets/training/groundtruth_binary'
+os.path.exists(path2) or os.makedirs(path2)
 targets = glob(path + '/*.png')
 for t in targets:
     img = Image.open(t)
     img_array = np.array(img)
-    binary_img_array = np.where(img_array <= 127, 0, 255)
-    binary_img = Image.fromarray(binary_img_array.astype(np.uint8))
-    binary_img.save(f"{path2}/{splitext(t.split('/')[-1])[0]}.png")
+    normalized_img_array = np.where(img_array < 128, 0, 255)
+    normalized_img = Image.fromarray(normalized_img_array.astype(np.uint8))
+    normalized_img.save(f"{path2}/{splitext(t.split('/')[-1])[0]}.png")
