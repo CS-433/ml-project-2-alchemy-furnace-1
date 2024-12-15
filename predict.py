@@ -86,7 +86,7 @@ def mask_to_image(mask: np.ndarray, mask_values):
 
 if __name__ == '__main__':
     args = get_args()
-    args.model = '/home/yifwang/ml-project-2-alchemy-furnace-1/checkpoints/checkpoint_epoch80_0.9015659689903259.pth'
+    args.model = '/home/yifwang/ml-project-2-alchemy-furnace-1/checkpoints/12-15_16-40-52/ckpt_e80_0.9018076062202454.pth'
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     input_path = 'datasets/test_set_images'
     input_images = glob.glob(os.path.join(input_path, '*/*.png'))
