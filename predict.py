@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.data_loading import BasicDataset
 from unet import UNet
 from utils.utils import plot_img_and_mask
-
+from scripts.mask_to_submission import masks_to_submission
 def predict_img(net,
                 full_img,
                 device,
@@ -85,7 +85,7 @@ def mask_to_image(mask: np.ndarray, mask_values):
 
 if __name__ == '__main__':
     args = get_args()
-    args.model = 'checkpoints/checkpoint_epoch20_0.7186881899833679.pth'
+    args.model = '/home/yifwang/ml-project-2-alchemy-furnace-1/checkpoints/checkpoint_epoch80_0.9015659689903259.pth'
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     input_path = 'datasets/test_set_images'
     input_images = glob.glob(os.path.join(input_path, '*/*.png'))
@@ -101,6 +101,7 @@ if __name__ == '__main__':
 
     net.to(device=device)
     state_dict = torch.load(args.model, map_location=device)
+    state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
     mask_values = state_dict.pop('mask_values', [0, 1])
     net.load_state_dict(state_dict)
 
@@ -115,13 +116,58 @@ if __name__ == '__main__':
                            scale_factor=args.scale,
                            out_threshold=args.mask_threshold,
                            device=device)
+        # img_flip1 = img.transpose(Image.FLIP_TOP_BOTTOM)
+        # img_flip2 = img.transpose(Image.FLIP_LEFT_RIGHT)
+        # img_rot90 = img.rotate(90)
+        # img_rot180 = img.rotate(180)
+        # img_rot270 = img.rotate(270)
+        # mask_flip1 = predict_img(net=net,
+        #                          full_img=img_flip1,
+        #                          scale_factor=args.scale,
+        #                          out_threshold=args.mask_threshold,
+        #                          device=device)
+        # mask_flip2 = predict_img(net=net,
+        #                             full_img=img_flip2,
+        #                             scale_factor=args.scale,
+        #                             out_threshold=args.mask_threshold,
+        #                             device=device)
+        # mask_rot90 = predict_img(net=net,
+        #                             full_img=img_rot90,
+        #                             scale_factor=args.scale,
+        #                             out_threshold=args.mask_threshold,
+        #                             device=device)
+        # mask_rot180 = predict_img(net=net,
+        #                             full_img=img_rot180,
+        #                             scale_factor=args.scale,
+        #                             out_threshold=args.mask_threshold,
+        #                             device=device)
+        # mask_rot270 = predict_img(net=net,
+        #                           full_img=img_rot270,
+        #                             scale_factor=args.scale,
+        #                             out_threshold=args.mask_threshold,
+        #                             device=device)
+        # mask_flip1 = np.flipud(mask_flip1)
+        # mask_flip2 = np.fliplr(mask_flip2)
+        # mask_rot90 = np.rot90(mask_rot90, 3)
+        # mask_rot180 = np.rot90(mask_rot180, 2)
+        # mask_rot270 = np.rot90(mask_rot270, 1)
+        # mask = mask + mask_flip1 + mask_flip2 + mask_rot90 + mask_rot180 + mask_rot270
+
+        # mask = mask / 6.0
+        # mask = mask + mask_flip1 + mask_flip2
+        # mask = mask / 3.0
 
         if not args.no_save:
             out_filename = out_files[i]
             result = mask_to_image(mask, mask_values)
             result.save(out_filename)
             logging.info(f'Mask saved to {out_filename}')
-
-        # if args.viz:
-        #     logging.info(f'Visualizing results for image {filename}, close to continue...')
-        #     plot_img_and_mask(img, mask)
+            
+    submission_filename = f'submission_{args.model.split("/")[-1].split(".pth")[0]}.csv'
+    print(submission_filename)
+    image_filenames = []
+    files_path = out_files[0].rsplit('/', 1)[0]
+    for i in range(1, 51):
+        image_filename = os.path.join(files_path, 'test_' + str(i) + '_OUT.png')
+        image_filenames.append(image_filename)
+    masks_to_submission(submission_filename, *image_filenames)

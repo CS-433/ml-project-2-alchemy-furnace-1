@@ -1,14 +1,20 @@
 #!/bin/bash
-#SBATCH --partition=debug         # 使用 debug 分区
-#SBATCH --qos=debug               # 指定 QOS 为 debug
-#SBATCH --nodes=1                 # 使用 1 个节点（默认是 i63）
-#SBATCH --ntasks=1                # 单任务
-#SBATCH --cpus-per-task=4         # 每个任务使用 4 个 CPU
-#SBATCH --gres=gpu:2
-#SBATCH --mem=16G                 # 请求 16GB 内存
-#SBATCH --time=01:00:00           # 作业最大运行时间
+#SBATCH --job-name=ntu60
+#SBATCH --output=slurm_out11/%j.out
+#SBATCH --error=slurm_out11/%j.err
+#SBATCH --mem=40G                      
+#SBATCH --time=01:40:00
+#SBATCH --partition=h100
+#SBATCH --cpus-per-task=40
+#SBATCH --ntasks=2
+#SBATCH --gres=gpu:1
+#SBATCH --account=vita
+
+mkdir -p slurm_out11
+
+source ~/anaconda3/bin/activate ada
 nvidia-smi
-source ~/miniconda3/bin/activate base
+
 # 执行 Python 脚本
-#python scripts/train.py --epochs 20 --batch-size 1 --learning-rate 2e-5  --scale 0.5 --validation 10.0  --classes 2 #--amp --bilinear
-python predict.py
+python scripts/train.py --epochs 100 --batch-size 40 --learning-rate 5e-4  --scale 0.5 --validation 5.0  --classes 2 #--amp --bilinear
+# python predict.py

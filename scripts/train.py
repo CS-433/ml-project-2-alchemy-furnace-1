@@ -20,8 +20,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.data_loading import BasicDataset, CarvanaDataset
 from utils.dice_score import dice_loss
 
-dir_img = Path('/home/yifwang/ml-project-2-alchemy-furnace-1/training/images')
-dir_mask = Path('/home/yifwang/ml-project-2-alchemy-furnace-1/training/groundtruth_binary')
+dir_img = Path('/home/yifwang/ml-project-2-alchemy-furnace-1/training/images2')
+dir_mask = Path('/home/yifwang/ml-project-2-alchemy-furnace-1/training/groundtruth_binary2')
 dir_checkpoint = Path('./checkpoints/')
 
 
@@ -30,12 +30,12 @@ def train_model(
         device,
         epochs: int = 5,
         batch_size: int = 1,
-        learning_rate: float = 1e-5,
+        learning_rate: float = 4e-5,
         val_percent: float = 0.1,
         save_checkpoint: bool = True,
         img_scale: float = 0.5,
         amp: bool = False,
-        weight_decay: float = 3e-4,
+        weight_decay: float = 5e-4,
         momentum: float = 0.999,
         gradient_clipping: float = 1.0,
 ):
@@ -84,7 +84,41 @@ def train_model(
         eta_min=1e-5
     )
     grad_scaler = torch.amp.GradScaler('cuda', enabled=amp)
-    criterion = nn.CrossEntropyLoss() if model.n_classes > 1 else nn.BCEWithLogitsLoss()
+    class DiceCrossEntropyLoss(nn.Module):
+        def __init__(self, weight_ce=0.5, weight_dice=0.5, smooth=1e-6):
+            super(DiceCrossEntropyLoss, self).__init__()
+            self.ce = nn.CrossEntropyLoss()
+            self.weight_ce = weight_ce
+            self.weight_dice = weight_dice
+            self.smooth = smooth
+
+        def forward(self, inputs, targets):
+            # inputs: [N, C=2, H, W] (logits)
+            # targets: [N, H, W] (int labels: 0 or 1)
+
+            # 1. CrossEntropyLoss
+            ce_loss = self.ce(inputs, targets)
+
+            # 2. Dice Loss for foreground class
+            # 将logits通过softmax得到概率分布: probs: [N, C=2, H, W]
+            probs = F.softmax(inputs, dim=1)
+
+            # 假设前景是类1 (背景为类0)
+            foreground = probs[:, 1, :, :]  # [N, H, W]
+            foreground_flat = foreground.reshape(-1)
+
+            targets_flat = (targets == 1).float().view(-1)  # 将目标中为1的像素作为前景mask
+
+            intersection = (foreground_flat * targets_flat).sum()
+            dice = (2. * intersection + self.smooth) / (foreground_flat.sum() + targets_flat.sum() + self.smooth)
+            dice_loss = 1 - dice
+
+            # 3. 组合损失
+            loss = self.weight_ce * ce_loss + self.weight_dice * dice_loss
+            return loss
+
+    # criterion = nn.CrossEntropyLoss() if model.n_classes > 1 else nn.BCEWithLogitsLoss()
+    criterion = DiceCrossEntropyLoss()
     global_step = 0
 
     # 5. Begin training
