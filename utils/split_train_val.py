@@ -1,15 +1,15 @@
 
 # img_dirs = ['datasets/training/images_train', 'datasets/training/image_rotation', 'datasets/training/image_flip', 'datasets/training/image_rotation45']
 # mask_dirs = ['datasets/training/groundtruth_binary_train', 'datasets/training/groundtruth_rotation', 'datasets/training/groundtruth_flip', 'datasets/training/groundtruth_rotation45']
-# img_dirs = ['datasets/training/image_rotation45v3']
-# mask_dirs = ['datasets/training/groundtruth_rotation45v3']
-img_dirs = ['datasets/training/image_rotation45']
-mask_dirs = ['datasets/training/groundtruth_rotation45']
+# img_dirs = ['datasets/training/image_rotation45v4']
+# mask_dirs = ['datasets/training/groundtruth_rotation45v4']
+img_dirs = ['datasets/training/image_rotation45v3']
+mask_dirs = ['datasets/training/groundtruth_rotation45v3']
 
 
 import os
 import shutil
-n = 40
+n = 30
 for img_dir, mask_dir in zip(img_dirs, mask_dirs):
     for id in range(1, 11):
         file_name = f'satImage_{id:03d}.png'

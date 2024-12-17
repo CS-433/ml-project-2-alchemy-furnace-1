@@ -14,6 +14,10 @@ output_paths = {
     'rotation_mask': 'datasets/training/groundtruth_rotation45v3',
     'rotation_img': 'datasets/training/image_rotation45v3',
 }
+# output_paths = {
+#     'rotation_mask': 'datasets/training/groundtruth_rotation45v4',
+#     'rotation_img': 'datasets/training/image_rotation45v4',
+# }
 
 # 创建输出目录
 for out_path in output_paths.values():
@@ -35,6 +39,7 @@ for t in tqdm(targets):
 
     # 随机选择一个旋转角度
     angle = random.choice(angles)
+    # angle = random.randint(-5,5)
 
     W, H = img_image.size
     # 计算旋转后需要裁剪的区域(原代码中已有逻辑)
@@ -42,6 +47,10 @@ for t in tqdm(targets):
     H2 = int(H / 2 + math.sqrt(2) * H / 4)
     W1 = int(W / 2 - math.sqrt(2) * W / 4)
     W2 = int(W / 2 + math.sqrt(2) * W / 4)
+    # H1 = int(H / 2 - 5 * math.sqrt(2) * H / 16)
+    # H2 = int(H / 2 + 5 * math.sqrt(2) * H / 16)
+    # W1 = int(W / 2 - 5 * math.sqrt(2) * H / 16)
+    # W2 = int(W / 2 + 5 * math.sqrt(2) * H / 16)
 
     # 对mask和image进行旋转
     rotated_mask = mask_image.rotate(angle)

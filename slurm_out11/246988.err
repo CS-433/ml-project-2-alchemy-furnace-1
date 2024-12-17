@@ -1,0 +1,16 @@
+INFO: Using device cuda
+INFO: Network:
+	3 input channels
+	2 output channels (classes)
+	Transposed conv upscaling
+INFO: Creating dataset with 100 examples
+INFO: Scanning mask files to determine unique values
+  0%|          | 0/100 [00:00<?, ?it/s]100%|██████████| 100/100 [00:00<00:00, 1139.17it/s]
+INFO: Unique mask values: [0, 255]
+Traceback (most recent call last):
+  File "/home/yifwang/ml-project-2-alchemy-furnace-1/scripts/train.py", line 278, in <module>
+    train_model(
+  File "/home/yifwang/ml-project-2-alchemy-furnace-1/scripts/train.py", line 86, in train_model
+    ('rotation45', (augmented_dir['rotation45_mask'], augmented_dir['rotation45_img'])),
+                    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+KeyError: 'rotation45_mask'

@@ -16,5 +16,5 @@ source ~/anaconda3/bin/activate ada
 nvidia-smi
 
 # 执行 Python 脚本
-python scripts/train.py --epochs 100 --batch-size 40 --learning-rate 5e-4  --scale 0.5 --validation 5.0  --classes 2 #--amp --bilinear
-# python predict.py
+# python scripts/train.py --epochs 45 --batch-size 12 --learning-rate 3e-4  --scale 0.5 --validation 10.0  --classes 2 #--amp --bilinear
+python predict.py

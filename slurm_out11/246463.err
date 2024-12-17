@@ -1,0 +1,29 @@
+INFO: Using device cuda
+INFO: Network:
+	3 input channels
+	2 output channels (classes)
+	Transposed conv upscaling
+INFO: Creating dataset with 90 examples
+INFO: Scanning mask files to determine unique values
+  0%|          | 0/90 [00:00<?, ?it/s]100%|██████████| 90/90 [00:00<00:00, 1125.55it/s]
+INFO: Unique mask values: [0, 255]
+INFO: Creating dataset with 90 examples
+INFO: Scanning mask files to determine unique values
+  0%|          | 0/90 [00:00<?, ?it/s]100%|██████████| 90/90 [00:00<00:00, 1256.66it/s]
+INFO: Unique mask values: [0, 255]
+INFO: Creating dataset with 90 examples
+INFO: Scanning mask files to determine unique values
+  0%|          | 0/90 [00:00<?, ?it/s]100%|██████████| 90/90 [00:00<00:00, 917.94it/s]
+INFO: Unique mask values: [0, 255]
+INFO: Creating dataset with 90 examples
+INFO: Scanning mask files to determine unique values
+  0%|          | 0/90 [00:00<?, ?it/s]  1%|          | 1/90 [00:00<00:10,  8.84it/s]100%|██████████| 90/90 [00:00<00:00, 790.92it/s]
+INFO: Unique mask values: [0, 255]
+INFO: Creating dataset with 50 examples
+INFO: Scanning mask files to determine unique values
+  0%|          | 0/50 [00:00<?, ?it/s]100%|██████████| 50/50 [00:00<00:00, 1690.58it/s]
+INFO: Unique mask values: [0, 255]
+/home/yifwang/anaconda3/envs/ada/lib/python3.11/site-packages/torch/utils/data/dataloader.py:617: UserWarning: This DataLoader will create 64 worker processes in total. Our suggested max number of worker in current system is 40, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  warnings.warn(
+wandb: Using wandb-core as the SDK backend.  Please refer to https://wandb.me/wandb-core for more information.
+slurmstepd: error: *** JOB 246463 ON kh012 CANCELLED AT 2024-12-17T01:13:12 ***

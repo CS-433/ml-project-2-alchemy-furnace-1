@@ -22,21 +22,26 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.data_loading import BasicDataset, CarvanaDataset
 from utils.dice_score import dice_loss
 
-dir_img = Path('datasets/training/images_train')
-dir_mask = Path('datasets/training/groundtruth_binary_train')
+# dir_img = Path('datasets/training/images_train')
+# dir_mask = Path('datasets/training/groundtruth_binary_train')
+dir_img = Path('datasets/training/ori_images')
+dir_mask = Path('datasets/training/groundtruth_binary')
 val_img = Path('datasets/training/val_image')
 val_mask = Path('datasets/training/val_mask')
-
+# val_img = Path('datasets/training/val_imagev2')
+# val_mask = Path('datasets/training/val_maskv2')
 dir_checkpoint = Path('./checkpoints/')
 augmented_dir = {
     'rotation_mask': 'datasets/training/groundtruth_rotation',
     'rotation_img': 'datasets/training/image_rotation',
     'flip_mask': 'datasets/training/groundtruth_flip',
     'flip_img': 'datasets/training/image_flip',
-    'rotation45_mask': 'datasets/training/groundtruth_rotation45',
-    'rotation45_img': 'datasets/training/image_rotation45',
+    # 'rotation45_mask': 'datasets/training/groundtruth_rotation45',
+    # 'rotation45_img': 'datasets/training/image_rotation45',
     'rotation45_maskv3': 'datasets/training/groundtruth_rotation45v3',
-    'rotation45_imgv3': 'datasets/training/image_rotation45v3'
+    'rotation45_imgv3': 'datasets/training/image_rotation45v3',
+    # 'rotation45_maskv4': 'datasets/training/groundtruth_rotation45v4',
+    # 'rotation45_imgv4': 'datasets/training/image_rotation45v4',
 }
 
 def train_model(
@@ -78,8 +83,10 @@ def train_model(
     for key, (mask_dir, img_dir) in [
         ('rotation', (augmented_dir['rotation_mask'], augmented_dir['rotation_img'])),
         ('flip', (augmented_dir['flip_mask'], augmented_dir['flip_img'])),
-        ('rotation45', (augmented_dir['rotation45_mask'], augmented_dir['rotation45_img'])),
-        ('rotation45v3', (augmented_dir['rotation45_maskv3'], augmented_dir['rotation45_imgv3']))
+        # ('rotation45', (augmented_dir['rotation45_mask'], augmented_dir['rotation45_img'])),
+        ('rotation45v3', (augmented_dir['rotation45_maskv3'], augmented_dir['rotation45_imgv3'])),
+        # ('rotation45v4', (augmented_dir['rotation45_maskv4'], augmented_dir['rotation45_imgv4'])),
+        
     ]:
         aug_dataset = BasicDataset(img_dir, mask_dir, img_scale)
         augmented_datasets[key] = aug_dataset
@@ -124,8 +131,8 @@ def train_model(
     #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=5)  # goal: maximize Dice score
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
-    # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=2e-5)
-    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2, eta_min=1e-7)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=5e-5)
+    # scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2, eta_min=1e-7)
     # scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
     #     optimizer, 
     #     T_0=10,  
@@ -195,7 +202,7 @@ def train_model(
                                 histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
 
                         val_score = evaluate(model, val_loader, device, amp)
-                        scheduler.step(val_score)
+                        # scheduler.step(val_score)
 
                         logging.info('Validation Dice score: {}'.format(val_score))
                         try:
@@ -213,8 +220,8 @@ def train_model(
                             })
                         except:
                             pass
-        # scheduler.step()
-        if epoch % 10 == 0 or epoch == epochs:
+        scheduler.step()
+        if epoch % 5 == 0 or epoch == epochs:
             if save_checkpoint:
                 state_dict = model.state_dict()
                 state_dict['mask_values'] = dataset.mask_values
