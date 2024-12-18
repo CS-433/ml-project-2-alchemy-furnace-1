@@ -1,32 +1,52 @@
-# Project Road Segmentation
+# ML Project 2: Road Segmentation
+For the second ML project of the course CS433 in EPFL, we are assigned to address the road segmentation challenge.
+(full details: https://www.aicrowd.com/challenges/epfl-ml-road-segmentation)
 
-For this choice of project task, we provide a set of satellite images acquired 
-from GoogleMaps. We also provide ground-truth images where each pixel is labeled 
-as road or background. 
 
-Your task is to train a classifier to segment roads in these images, i.e. 
-assigns a label `road=1, background=0` to each pixel.
+# Environment set up 
 
-Submission system environment setup:
+conda create --name project2 python=3.10
+pip install -r requirements.txt
 
-1. The dataset is available from the 
-[AICrowd page](https://www.aicrowd.com/challenges/epfl-ml-road-segmentation).
+# Dataset
+Training dataset: 100 pairs of images with the size 400*400 
 
-2. Obtain the python notebook `segment_aerial_images.ipynb` from this github 
-folder, to see example code on how to extract the images as well as 
-corresponding labels of each pixel.
+Test dataset: 608*608
 
-The notebook shows how to use `scikit learn` to generate features from each 
-pixel, and finally train a linear classifier to predict whether each pixel is 
-road or background. Or you can use your own code as well. Our example code here 
-also provides helper functions to visualize the images, labels and predictions. 
-In particular, the two functions `mask_to_submission.py` and 
-`submission_to_mask.py` help you to convert from the submission format to a 
-visualization, and vice versa.
+# Data Preprocessing and Augmentation
 
-3. As a more advanced approach, try `tf_aerial_images.py`, which demonstrates 
-the use of a basic convolutional neural network in TensorFlow for the same 
-prediction task.
+**Data cleaning**: remove the 11st, 28th, 92nd pairs of the images
 
-Evaluation Metric:
- [F1 score](https://en.wikipedia.org/wiki/F1_score)
+**Data preprocessing**: python utils/preprocess_gt.py
+
+**Data augment flip and rotate 90**: python utils/augment_data.py
+
+**Data augment rotate 45**: first method in the report: python utils/augment_data_rotate2.py
+
+**Data augment rotate 45**: second method in the report : python utils/augment_data_rotate.py
+
+**Data split before training**: python utils/split_train_val.py
+
+
+# Train
+**python scripts/train.py --epochs 40 --batch-size 16 --learning-rate 3e-4  --scale 0.5 --validation 10.0  --classes 2**
+
+or 
+
+SCITAS: **sbatch wrapper.sh** (Change to train mode)
+
+# Test (Predict)
+
+**python predict.py** (you need Change the path of the checkpoints in **predict.py**)
+
+or 
+
+SCITAS: **sbatch wrapper.sh** (Change to test mode)
+
+
+
+
+
+
+
+

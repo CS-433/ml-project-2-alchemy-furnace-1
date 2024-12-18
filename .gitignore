@@ -1,0 +1,5 @@
+checkpoints
+wandb
+outputs
+slurm-*
+.DS_Store
