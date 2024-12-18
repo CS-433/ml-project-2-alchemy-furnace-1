@@ -19,4 +19,4 @@ nvidia-smi
 # python scripts/train.py --epochs 40 --batch-size 16 --learning-rate 3e-4  --scale 0.5 --validation 10.0  --classes 2 #--amp --bilinear
 
 # test mode
-python predict.py
+python run.py
