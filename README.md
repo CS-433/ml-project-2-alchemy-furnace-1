@@ -3,6 +3,7 @@ For the second ML project of the course CS433 in EPFL, we are assigned to addres
 (full details: https://www.aicrowd.com/challenges/epfl-ml-road-segmentation)
 
 The picture below shows one sample pair of an image and corresponding groundtruth.
+
 ![intoout](sample.png)
 
 # Environment set up 
