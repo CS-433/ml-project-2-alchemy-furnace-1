@@ -2,6 +2,7 @@
 For the second ML project of the course CS433 in EPFL, we are assigned to address the road segmentation challenge.
 (full details: https://www.aicrowd.com/challenges/epfl-ml-road-segmentation)
 
+![intoout](sample.png)
 
 # Environment set up 
 
