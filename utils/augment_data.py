@@ -5,7 +5,7 @@ from glob import glob
 import os
 import math
 from tqdm import tqdm
-# 路径设置
+# set the path to the dataset
 path = 'datasets/training/groundtruth_binary'
 path_img = 'datasets/training/ori_images'
 
@@ -16,11 +16,11 @@ output_paths = {
     'flip_img': 'datasets/training/image_flip'
 }
 
-# 创建输出目录
+# create the output directories
 for out_path in output_paths.values():
     os.makedirs(out_path, exist_ok=True)
 
-# 数据增强函数
+# Data Augmentation
 def random_rotation(image1, image2):
     angle = random.choice([90, 180, 270])
     return image1.rotate(angle), image2.rotate(angle)
@@ -30,21 +30,16 @@ def random_flip(image1, image2):
     return image1.transpose(flip_method), image2.transpose(flip_method)
 
 
-
-
-
-
-
-# 遍历并增强数据
+# apply the transformations
 targets = glob(os.path.join(path, '*.png'))
 for t in tqdm(targets):
     basename = os.path.basename(t)
-    mask_image = Image.open(t).convert('L')  # 确保掩码是单通道
+    mask_image = Image.open(t).convert('L')  
     img_path = os.path.join(path_img, basename)
     if not os.path.exists(img_path):
         print(f"Image not found for mask: {basename}")
         continue
-    img_image = Image.open(img_path).convert('RGB')  # 确保图像是RGB
+    img_image = Image.open(img_path).convert('RGB')  # ensure the image is in RGB mode
 
     # Random Rotation
     rotated_mask, rotated_img = random_rotation(mask_image, img_image)

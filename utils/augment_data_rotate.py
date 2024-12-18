@@ -4,7 +4,7 @@ import random
 import os
 from tqdm import tqdm
 
-# 路径设置
+# set the path to the dataset
 gt_path = 'datasets/training/groundtruth_binary'
 img_path = 'datasets/training/ori_images'
 
@@ -13,7 +13,7 @@ output_paths = {
     'rotation45_img': 'datasets/training/image_rotation45',
 }
 
-# 创建输出目录
+# create the output directories
 for out_path in output_paths.values():
     os.makedirs(out_path, exist_ok=True)
 
