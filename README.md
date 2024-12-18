@@ -41,6 +41,8 @@ SCITAS: **sbatch wrapper.sh** (Change to train mode)
 
 # Test (Predict)
 
+You can download the pre-trained model ckpt.pth from (**https://drive.google.com/file/d/1MaREX4YBM7fRVr_5KS50bPBpuu6S4ZoQ/view?usp=drive_link**)
+
 **python run.py** (you need Change the path of the checkpoints in **run.py**)
 
 or 
