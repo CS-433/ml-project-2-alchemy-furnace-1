@@ -6,10 +6,11 @@ For the second ML project of the course CS433 in EPFL, we are assigned to addres
 # Environment set up 
 
 conda create --name project2 python=3.10
+
 pip install -r requirements.txt
 
 # Dataset
-Training dataset: 100 pairs of images with the size 400*400 
+Training dataset: 100 pairs of real images and groundtruth images with the size 400*400 
 
 Test dataset: 608*608
 
