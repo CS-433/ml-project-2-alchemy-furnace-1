@@ -41,7 +41,7 @@ SCITAS: **sbatch wrapper.sh** (Change to train mode)
 
 # Test (Predict)
 
-**python predict.py** (you need Change the path of the checkpoints in **predict.py**)
+**python run.py** (you need Change the path of the checkpoints in **run.py**)
 
 or 
 
