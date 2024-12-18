@@ -87,13 +87,13 @@ def mask_to_image(mask: np.ndarray, mask_values):
 if __name__ == '__main__':
     args = get_args()
     # change the model path to the path of the model you want to use
-    args.model = 'checkpoints/12-18_13-43-01/ckpt_e45_0.9413647651672363.pth'
+    args.model = 'ckpt.pth'
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     input_path = 'datasets/test_set_images'
     input_images = glob.glob(os.path.join(input_path, '*/*.png'))
     
     in_files = input_images #datasets/test_set_images/test_1/test_1.png
-    out_files = get_output_filenames(args.model, in_files) #outputs/checkpoint_epoch20_0.7186881899833679/test_1_OUT.png
+    out_files = get_output_filenames(args.model, in_files) 
 
     net = UNet(n_channels=3, n_classes=args.classes, bilinear=args.bilinear)
 
