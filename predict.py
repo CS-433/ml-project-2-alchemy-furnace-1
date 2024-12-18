@@ -86,7 +86,8 @@ def mask_to_image(mask: np.ndarray, mask_values):
 
 if __name__ == '__main__':
     args = get_args()
-    args.model = '/home/yifwang/ml-project-2-alchemy-furnace-1/checkpoints/12-17_16-09-13/ckpt_e45_0.9469825029373169.pth'
+    # change the model path to the path of the model you want to use
+    args.model = 'checkpoints/12-18_13-43-01/ckpt_e45_0.9413647651672363.pth'
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     input_path = 'datasets/test_set_images'
     input_images = glob.glob(os.path.join(input_path, '*/*.png'))
@@ -118,47 +119,6 @@ if __name__ == '__main__':
                            scale_factor=args.scale,
                            out_threshold=args.mask_threshold,
                            device=device)
-        # img_flip1 = img.transpose(Image.FLIP_TOP_BOTTOM)
-        # img_flip2 = img.transpose(Image.FLIP_LEFT_RIGHT)
-        # img_rot90 = img.rotate(90)
-        # img_rot180 = img.rotate(180)
-        # img_rot270 = img.rotate(270)
-        # mask_flip1 = predict_img(net=net,
-        #                          full_img=img_flip1,
-        #                          scale_factor=args.scale,
-        #                          out_threshold=args.mask_threshold,
-        #                          device=device)
-        # mask_flip2 = predict_img(net=net,
-        #                             full_img=img_flip2,
-        #                             scale_factor=args.scale,
-        #                             out_threshold=args.mask_threshold,
-        #                             device=device)
-        # mask_rot90 = predict_img(net=net,
-        #                             full_img=img_rot90,
-        #                             scale_factor=args.scale,
-        #                             out_threshold=args.mask_threshold,
-        #                             device=device)
-        # mask_rot180 = predict_img(net=net,
-        #                             full_img=img_rot180,
-        #                             scale_factor=args.scale,
-        #                             out_threshold=args.mask_threshold,
-        #                             device=device)
-        # mask_rot270 = predict_img(net=net,
-        #                           full_img=img_rot270,
-        #                             scale_factor=args.scale,
-        #                             out_threshold=args.mask_threshold,
-        #                             device=device)
-        # mask_flip1 = np.flipud(mask_flip1)
-        # mask_flip2 = np.fliplr(mask_flip2)
-        # mask_rot90 = np.rot90(mask_rot90, 3)
-        # mask_rot180 = np.rot90(mask_rot180, 2)
-        # mask_rot270 = np.rot90(mask_rot270, 1)
-        # mask = mask + mask_flip1 + mask_flip2 + mask_rot90 + mask_rot180 + mask_rot270
-
-        # mask = mask / 6.0
-        # mask = mask + mask_flip1 + mask_flip2
-        # mask = mask / 3.0
-
         if not args.no_save:
             out_filename = out_files[i]
             result = mask_to_image(mask, mask_values)

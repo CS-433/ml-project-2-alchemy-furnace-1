@@ -22,26 +22,24 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.data_loading import BasicDataset, CarvanaDataset
 from utils.dice_score import dice_loss
 
-# dir_img = Path('datasets/training/images_train')
-# dir_mask = Path('datasets/training/groundtruth_binary_train')
-dir_img = Path('datasets/training/ori_images')
-dir_mask = Path('datasets/training/groundtruth_binary')
+dir_img = Path('datasets/training/images_train')
+dir_mask = Path('datasets/training/groundtruth_binary_train')
+# dir_img = Path('datasets/training/ori_images')
+# dir_mask = Path('datasets/training/groundtruth_binary')
 val_img = Path('datasets/training/val_image')
 val_mask = Path('datasets/training/val_mask')
-# val_img = Path('datasets/training/val_imagev2')
-# val_mask = Path('datasets/training/val_maskv2')
+# val_img = Path('datasets/training/val_imagev3')
+# val_mask = Path('datasets/training/val_maskv3')
 dir_checkpoint = Path('./checkpoints/')
 augmented_dir = {
     'rotation_mask': 'datasets/training/groundtruth_rotation',
     'rotation_img': 'datasets/training/image_rotation',
     'flip_mask': 'datasets/training/groundtruth_flip',
     'flip_img': 'datasets/training/image_flip',
-    # 'rotation45_mask': 'datasets/training/groundtruth_rotation45',
-    # 'rotation45_img': 'datasets/training/image_rotation45',
-    'rotation45_maskv3': 'datasets/training/groundtruth_rotation45v3',
-    'rotation45_imgv3': 'datasets/training/image_rotation45v3',
-    # 'rotation45_maskv4': 'datasets/training/groundtruth_rotation45v4',
-    # 'rotation45_imgv4': 'datasets/training/image_rotation45v4',
+    'rotation45_mask': 'datasets/training/groundtruth_rotation45',
+    'rotation45_img': 'datasets/training/image_rotation45',
+    # 'rotation45_maskv3': 'datasets/training/groundtruth_rotation45v3',
+    # 'rotation45_imgv3': 'datasets/training/image_rotation45v3',
 }
 
 def train_model(
@@ -59,7 +57,10 @@ def train_model(
         gradient_clipping: float = 1.0,
 ):  
     #n_classes = model.module.n_classes
-    
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logging.info(f'Total parameters: {total_params}')
+    logging.info(f'Trainable parameters: {trainable_params}')
     output_dir = os.path.join(dir_checkpoint, datetime.datetime.now().strftime('%m-%d_%H-%M-%S'))
     os.makedirs(output_dir, exist_ok=True)
     params = {
@@ -83,10 +84,8 @@ def train_model(
     for key, (mask_dir, img_dir) in [
         ('rotation', (augmented_dir['rotation_mask'], augmented_dir['rotation_img'])),
         ('flip', (augmented_dir['flip_mask'], augmented_dir['flip_img'])),
-        # ('rotation45', (augmented_dir['rotation45_mask'], augmented_dir['rotation45_img'])),
-        ('rotation45v3', (augmented_dir['rotation45_maskv3'], augmented_dir['rotation45_imgv3'])),
-        # ('rotation45v4', (augmented_dir['rotation45_maskv4'], augmented_dir['rotation45_imgv4'])),
-        
+        ('rotation45', (augmented_dir['rotation45_mask'], augmented_dir['rotation45_img'])),
+        # ('rotation45v3', (augmented_dir['rotation45_maskv3'], augmented_dir['rotation45_imgv3'])),
     ]:
         aug_dataset = BasicDataset(img_dir, mask_dir, img_scale)
         augmented_datasets[key] = aug_dataset

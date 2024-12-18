@@ -39,7 +39,8 @@ for t in tqdm(targets):
 
     # 随机选择一个旋转角度
     angle = random.choice(angles)
-    # angle = random.randint(-5,5)
+    angle += random.uniform(-5, 5)  
+    
 
     W, H = img_image.size
     # 计算旋转后需要裁剪的区域(原代码中已有逻辑)
